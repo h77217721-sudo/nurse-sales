@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訪問看護 売上管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --teal:#1D9E75;--teal-light:#E1F5EE;--teal-dark:#0F6E56;
+  --blue:#378ADD;--blue-light:#E6F1FB;--blue-dark:#185FA5;
+  --amber:#BA7517;--amber-light:#FAEEDA;
+  --red:#E24B4A;--red-light:#FCEBEB;
+  --gray:#888780;--gray-light:#F1EFE8;--gray-dark:#444441;
+  --bg:#FAFAF8;--surface:#FFFFFF;--border:#E8E6E0;
+  --text:#1A1917;--text-2:#6B6963;--text-3:#9C9990;
+  --radius:10px;--radius-lg:14px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6}
+
+/* ── LOGIN ── */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2.5rem;width:100%;max-width:420px;box-shadow:var(--shadow)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem}
+.login-logo-icon{width:40px;height:40px;background:var(--teal);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.login-logo-icon svg{width:22px;height:22px;fill:white}
+.login-title{font-size:20px;font-weight:700;color:var(--text)}
+.login-sub{font-size:13px;color:var(--text-2);margin-top:2px}
+.form-group{margin-bottom:1.25rem}
+.form-label{font-size:13px;font-weight:500;color:var(--text-2);margin-bottom:6px;display:block}
+.form-input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--teal)}
+.btn-login{width:100%;padding:11px;background:var(--teal);color:white;border:none;border-radius:var(--radius);font-size:15px;font-weight:500;font-family:'Noto Sans JP',sans-serif;cursor:pointer;transition:opacity .15s}
+.btn-login:hover{opacity:.88}
+.login-error{font-size:13px;color:var(--red);margin-top:.5rem;display:none}
+.login-hint{font-size:12px;color:var(--text-3);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+
+/* ── APP ── */
+#app{display:none;min-height:100vh;flex-direction:column}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-logo{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.header-logo svg{width:18px;height:18px;fill:white}
+.header-title{font-size:16px;font-weight:700;color:var(--text)}
+.header-org{font-size:12px;color:var(--teal);background:var(--teal-light);padding:2px 10px;border-radius:20px;font-weight:500}
+.header-right{display:flex;align-items:center;gap:8px}
+.btn-sm{padding:6px 14px;border-radius:8px;font-size:13px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-2);transition:all .15s}
+.btn-sm:hover{border-color:var(--gray);color:var(--text)}
+.btn-sm.danger:hover{border-color:var(--red);color:var(--red)}
+
+.main-layout{display:flex;flex:1}
+nav{width:200px;background:var(--surface);border-right:1px solid var(--border);padding:1.25rem 0;flex-shrink:0;position:sticky;top:58px;height:calc(100vh - 58px)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 1.25rem;font-size:14px;color:var(--text-2);cursor:pointer;border-left:2px solid transparent;transition:all .12s}
+.nav-item:hover{color:var(--text);background:var(--gray-light)}
+.nav-item.active{color:var(--teal);border-left-color:var(--teal);background:var(--teal-light);font-weight:500}
+.nav-icon{width:18px;height:18px;opacity:.7}
+.nav-item.active .nav-icon{opacity:1}
+
+.content{flex:1;padding:2rem;overflow-y:auto;max-width:1100px}
+.section{display:none}.section.active{display:block}
+
+.page-title{font-size:22px;font-weight:700;margin-bottom:.25rem}
+.page-sub{font-size:14px;color:var(--text-2);margin-bottom:1.75rem}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.card-title{font-size:12px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.25rem}
+.metric{background:var(--gray-light);border-radius:var(--radius);padding:1rem 1.25rem}
+.metric-label{font-size:12px;color:var(--text-2);margin-bottom:4px}
+.metric-value{font-size:24px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace}
+.metric-unit{font-size:13px;font-weight:400;color:var(--text-2);margin-left:2px}
+.metric-accent{border-left:3px solid var(--teal)}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid var(--gray-light);color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--gray-light)}
+.td-num{font-family:'DM Mono',monospace;text-align:right}
+th.th-num{text-align:right}
+
+/* ── BADGES ── */
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;white-space:nowrap}
+.badge-care{background:var(--teal-light);color:var(--teal-dark)}
+.badge-med{background:var(--blue-light);color:var(--blue-dark)}
+
+/* ── BAR ── */
+.bar-row{margin-bottom:12px}
+.bar-meta{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.bar-name{color:var(--text)}
+.bar-val{font-family:'DM Mono',monospace;font-weight:500;color:var(--text)}
+.bar-track{background:var(--gray-light);border-radius:4px;height:7px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:var(--teal);transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* ── UPLOAD ── */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:all .15s}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--teal);background:var(--teal-light)}
+.upload-icon-wrap{width:56px;height:56px;border-radius:50%;background:var(--gray-light);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
+.upload-title{font-size:16px;font-weight:500;margin-bottom:6px}
+.upload-sub{font-size:13px;color:var(--text-2)}
+.info-box{background:var(--blue-light);border:1px solid #B5D4F4;border-radius:var(--radius);padding:.875rem 1rem;font-size:13px;color:var(--blue-dark);margin-bottom:1.25rem;line-height:1.7}
+.col-map-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem}
+.form-select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--surface);outline:none}
+.form-select:focus{border-color:var(--teal)}
+.btn{padding:9px 20px;border-radius:var(--radius);font-size:14px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);transition:all .15s;font-weight:500}
+.btn:hover{border-color:var(--gray)}
+.btn-primary{background:var(--teal);color:white;border-color:var(--teal)}
+.btn-primary:hover{background:var(--teal-dark);border-color:var(--teal-dark)}
+.btn-outline{border-color:var(--border)}
+.success-banner{background:var(--teal-light);border:1px solid #5DCAA5;border-radius:var(--radius);padding:.75rem 1rem;font-size:13px;color:var(--teal-dark);margin-bottom:1.25rem;display:none}
+
+/* ── RATE TABLE ── */
+.rate-input{width:90px;text-align:right;border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);background:var(--surface)}
+.rate-input:focus{outline:none;border-color:var(--teal)}
+.rate-name-input{width:100%;border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--surface)}
+.rate-name-input:focus{outline:none;border-color:var(--teal)}
+.rate-type-select{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--surface)}
+.rate-type-select:focus{outline:none;border-color:var(--teal)}
+.del-btn{background:none;border:none;color:var(--text-3);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .12s}
+.del-btn:hover{background:var(--red-light);color:var(--red)}
+
+/* ── SETTINGS ── */
+.settings-row{display:flex;align-items:center;gap:12px;padding:1rem 0;border-bottom:1px solid var(--gray-light)}
+.settings-row:last-child{border-bottom:none}
+.settings-label{flex:1;font-size:14px}
+.settings-desc{font-size:12px;color:var(--text-2);margin-top:2px}
+
+/* ── CHART ── */
+.chart-wrap{position:relative;width:100%;height:280px}
+
+/* ── EXPORT ── */
+.export-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.export-card{border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;cursor:pointer;transition:all .15s}
+.export-card:hover{border-color:var(--teal);background:var(--teal-light)}
+.export-icon{font-size:28px;margin-bottom:.5rem}
+.export-name{font-size:14px;font-weight:500;margin-bottom:4px}
+.export-desc{font-size:12px;color:var(--text-2)}
+
+@media(max-width:700px){
+  nav{display:none}
+  .col-map-grid{grid-template-columns:1fr}
+  .metric-grid{grid-template-columns:1fr 1fr}
+  .export-grid{grid-template-columns:1fr}
+  .content{padding:1rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      </div>
+      <div>
+        <div class="login-title">訪問看護 売上管理</div>
+        <div class="login-sub">Visiting Nurse Sales Dashboard</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">事業所名</label>
+      <input class="form-input" id="orgInput" type="text" placeholder="例：小田原訪問看護ステーション">
+    </div>
+    <div class="form-group">
+      <label class="form-label">パスワード</label>
+      <input class="form-input" id="pwInput" type="password" placeholder="パスワードを入力">
+      <div class="login-error" id="loginError">パスワードが違います</div>
+    </div>
+    <button class="btn-login" onclick="doLogin()">ログイン</button>
+    <div class="login-hint">
+      ※ パスワードはこのファイルを配布する前に設定してください。<br>
+      初期パスワード：<strong>kango2024</strong><br>
+      設定画面から変更できます。
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <header>
+    <div class="header-left">
+      <div class="header-logo">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      </div>
+      <div class="header-title">訪問看護 売上管理</div>
+      <div class="header-org" id="headerOrg"></div>
+    </div>
+    <div class="header-right">
+      <button class="btn-sm" onclick="exportCSV()">CSV出力</button>
+      <button class="btn-sm danger" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <nav>
+      <div class="nav-item active" onclick="switchNav('upload')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        データ読み込み
+      </div>
+      <div class="nav-item" onclick="switchNav('staff')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        職員別売上
+      </div>
+      <div class="nav-item" onclick="switchNav('store')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        店舗合計
+      </div>
+      <div class="nav-item" onclick="switchNav('chart')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zM16.2 13h2.8v6h-2.8v-6z"/></svg>
+        グラフ
+      </div>
+      <div class="nav-item" onclick="switchNav('rates')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+        単価設定
+      </div>
+      <div class="nav-item" onclick="switchNav('settings')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        設定
+      </div>
+    </nav>
+
+    <div class="content">
+
+      <!-- ===== UPLOAD ===== -->
+      <div id="sec-upload" class="section active">
+        <div class="page-title">データ読み込み</div>
+        <div class="page-sub">月次のExcelまたはCSVファイルをアップロードして集計します</div>
+        <div class="success-banner" id="successBanner">✓ データを読み込みました。左のメニューから結果を確認できます。</div>
+        <div class="info-box">
+          対応列構成：<strong>職員名 / 利用者名 / 訪問時間（分） / 日付</strong><br>
+          列の順番は読み込み後に設定できます。ヘッダー行（1行目）が必要です。
+        </div>
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event)">
+          <div class="upload-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#888780"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          </div>
+          <div class="upload-title">ExcelまたはCSVをドロップ</div>
+          <div class="upload-sub">クリックでファイルを選択（.xlsx / .xls / .csv）</div>
+        </div>
+        <div id="colMapCard" style="display:none;margin-top:1.25rem">
+          <div class="card">
+            <div class="card-title">列の対応を確認・設定</div>
+            <div class="col-map-grid">
+              <div>
+                <label class="form-label">職員名の列</label>
+                <select class="form-select" id="col-staff"></select>
+              </div>
+              <div>
+                <label class="form-label">利用者名の列</label>
+                <select class="form-select" id="col-patient"></select>
+              </div>
+              <div>
+                <label class="form-label">訪問時間（分）の列</label>
+                <select class="form-select" id="col-time"></select>
+              </div>
+              <div>
+                <label class="form-label">日付の列</label>
+                <select class="form-select" id="col-date"></select>
+              </div>
+              <div>
+                <label class="form-label">業務種別（介護/医療）の列</label>
+                <select class="form-select" id="col-instype"></select>
+              </div>
+              <div>
+                <label class="form-label">サービス内容の列</label>
+                <select class="form-select" id="col-service"></select>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="processData()">集計する</button>
+              <button class="btn btn-outline" onclick="loadSample()">サンプルデータで試す</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;text-align:center" id="sampleArea">
+          <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">まずサンプルデータで試せます</p>
+          <button class="btn" onclick="loadSample()">サンプルデータを読み込む</button>
+        </div>
+      </div>
+
+      <!-- ===== STAFF ===== -->
+      <div id="sec-staff" class="section">
+        <div class="page-title">職員別売上</div>
+        <div class="page-sub" id="staffPeriod">集計対象期間：-</div>
+        <div class="metric-grid" id="staffMetrics"></div>
+        <div class="card">
+          <div class="card-title">職員別売上一覧</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>職員名</th>
+                  <th class="th-num">訪問件数</th>
+                  <th class="th-num">総訪問時間</th>
+                  <th class="th-num">売上金額</th>
+                  <th>構成比</th>
+                </tr>
+              </thead>
+              <tbody id="staffTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== STORE ===== -->
+      <div id="sec-store" class="section">
+        <div class="page-title">店舗合計</div>
+        <div class="page-sub">事業所全体の売上サマリー</div>
+        <div class="metric-grid" id="storeMetrics"></div>
+        <div class="card">
+          <div class="card-title">月別売上</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>月</th><th class="th-num">訪問件数</th><th class="th-num">売上金額</th></tr></thead>
+              <tbody id="monthTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">訪問区分別集計</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>区分</th><th>保険</th><th class="th-num">件数</th><th class="th-num">売上</th></tr></thead>
+              <tbody id="catTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CHART ===== -->
+      <div id="sec-chart" class="section">
+        <div class="page-title">グラフ</div>
+        <div class="page-sub">職員別・区分別の売上を可視化</div>
+        <div class="card">
+          <div class="card-title">職員別売上（上位10名）</div>
+          <div id="barChartArea"></div>
+        </div>
+        <div class="card" style="margin-top:1.25rem">
+          <div class="card-title">職員別売上構成（円グラフ）</div>
+          <div id="donutLegend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:12px;font-size:12px;color:var(--text-2)"></div>
+          <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ===== RATES ===== -->
+      <div id="sec-rates" class="section">
+        <div class="page-title">単価設定</div>
+        <div class="page-sub">サービス内容名・保険種別・単価を自由に追加・編集・削除できます</div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">サービス内容一覧</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="addRateRow()">＋ 項目を追加</button>
+              <button class="btn btn-primary" onclick="saveRates()">保存</button>
+              <button class="btn btn-outline" onclick="resetRates()">標準値に戻す</button>
+            </div>
+          </div>
+          <div class="info-box" style="margin-bottom:1rem">
+            令和6年6月改定・その他地域（1単位＝10円）の標準値です。事業所の地域区分に合わせて変更・保存してください。<br>
+            【地域区分目安】東京23区：11.40円 ／ 大阪市：10.90円 ／ 小田原市など：10.00円
+          </div>
+          <div class="table-wrap">
+            <table id="rateTable">
+              <thead>
+                <tr>
+                  <th style="width:36%">サービス内容名</th>
+                  <th style="width:20%">保険種別</th>
+                  <th class="th-num" style="width:22%">単価（円）</th>
+                  <th style="width:10%;text-align:center">削除</th>
+                </tr>
+              </thead>
+              <tbody id="rateTableBody"></tbody>
+            </table>
+          </div>
+          <p style="font-size:12px;color:var(--text-3);margin-top:.75rem">※ 保存ボタンを押すまで変更は反映されません</p>
+        </div>
+      </div>
+
+      <!-- ===== SETTINGS ===== -->
+      <div id="sec-settings" class="section">
+        <div class="page-title">設定</div>
+        <div class="page-sub">事業所情報・パスワードを管理します</div>
+        <div class="card">
+          <div class="card-title">事業所情報</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">事業所名</div>
+              <div class="settings-desc">ヘッダーと帳票に表示されます</div>
+            </div>
+            <input class="form-input" id="orgNameInput" style="width:260px" placeholder="事業所名を入力">
+          </div>
+          <div style="margin-top:1rem">
+            <button class="btn btn-primary" onclick="saveOrgName()">事業所名を保存</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">パスワード変更</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">現在のパスワード</div>
+            </div>
+            <input class="form-input" id="pwCurrent" type="password" style="width:220px">
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">新しいパスワード</div>
+            </div>
+            <input class="form-input" id="pwNew" type="password" style="width:220px">
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">新しいパスワード（確認）</div>
+            </div>
+            <input class="form-input" id="pwConfirm" type="password" style="width:220px">
+          </div>
+          <div style="margin-top:1rem;display:flex;align-items:center;gap:12px">
+            <button class="btn btn-primary" onclick="changePassword()">パスワードを変更</button>
+            <span id="pwMsg" style="font-size:13px"></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">このアプリについて</div>
+          <p style="font-size:14px;color:var(--text-2);line-height:1.8">
+            訪問看護ステーション向け売上管理ツールです。<br>
+            データはすべてブラウザ内で処理され、外部サーバーには送信されません。<br>
+            GitHub Pagesで無料公開できます。
+          </p>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main-layout -->
+</div><!-- /app -->
+
+<script>
+// ===== STATE =====
+const DEFAULT_PW = 'kango2024';
+const STORAGE_KEY = 'vnSales_';
+
+function ls(key, def=''){
+  try{ return localStorage.getItem(STORAGE_KEY+key) ?? def; }catch(e){ return def; }
+}
+function lsSet(key, val){
+  try{ localStorage.setItem(STORAGE_KEY+key, val); }catch(e){}
+}
+
+// サービス内容名 → 単価（円）のマスタ
+// ※ 訪問看護報酬改定後の10割換算概算値。各事業所で「単価設定」から変更してください
+const DEFAULT_RATES = [
+  // ── 介護保険（令和6年6月改定・訪問看護ステーション）──
+  // 地域区分：その他地域（7級地）1単位＝10.00円で計算
+  // ※事業所の地域区分に合わせて「単価設定」画面から変更してください
+  {name:'訪看Ⅰ２',       type:'介護',rate:4710},  // 471単位 30分未満
+  {name:'訪看Ⅰ３',       type:'介護',rate:8230},  // 823単位 30分〜1時間未満
+  {name:'訪看Ⅰ４',       type:'介護',rate:11280}, // 1128単位 1時間〜1時間30分未満
+  {name:'訪看Ⅰ５',       type:'介護',rate:14280}, // 1428単位 1時間30分以上
+  {name:'訪看Ⅰ５・２超', type:'介護',rate:14280}, // 同上（2時間超）
+  {name:'予訪看Ⅰ２',     type:'介護',rate:4510},  // 451単位 介護予防30分未満
+  {name:'予訪看Ⅰ３',     type:'介護',rate:7940},  // 794単位 介護予防30分〜1時間未満
+  {name:'予訪看Ⅰ５',     type:'介護',rate:10900}, // 1090単位 介護予防1時間〜1時間30分未満
+  // ── 医療保険（令和6年6月改定・10割額）──
+  // 訪問看護基本療養費Ⅰ：週3日目まで・30分以上・看護師
+  {name:'基本療養費Ⅰ・正看',     type:'医療',rate:5550},
+  {name:'基本療養費Ⅰ・理学',     type:'医療',rate:5550},
+  {name:'精神基本療養費Ⅰ・正看', type:'医療',rate:5550},
+  {name:'精神基本療養費Ⅰ・作業', type:'医療',rate:5550},
+  // ── 保険外 ──
+  {name:'自費サービス60分',        type:'保険外',rate:5000},
+  {name:'アンドアールモニタリング', type:'保険外',rate:3000},
+  {name:'退院日訪問記録',          type:'保険外',rate:5550},
+];
+
+let rates = [];
+let parsedRows = [], headers = [];
+let currentFileMonth = '';
+
+let donutChart = null;
+
+// ===== INIT =====
+(function init(){
+  const saved = ls('rates');
+  rates = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_RATES));
+
+  const org = ls('orgName');
+  if(org){ document.getElementById('orgNameInput').value = org; }
+
+  renderRateTable();
+
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', ()=> dz.classList.remove('drag'));
+  dz.addEventListener('drop', e=>{
+    e.preventDefault(); dz.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if(f) handleFile({target:{files:[f]}});
+  });
+})();
+
+// ===== LOGIN =====
+function doLogin(){
+  const org = document.getElementById('orgInput').value.trim();
+  const pw  = document.getElementById('pwInput').value;
+  const storedPw = ls('password', DEFAULT_PW);
+  if(pw !== storedPw){
+    document.getElementById('loginError').style.display='block';
+    return;
+  }
+  document.getElementById('loginError').style.display='none';
+  const orgName = org || ls('orgName','未設定の事業所');
+  if(org){ lsSet('orgName', org); document.getElementById('orgNameInput').value=org; }
+  document.getElementById('headerOrg').textContent = orgName;
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+}
+document.getElementById('pwInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+function doLogout(){
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('pwInput').value='';
+  document.getElementById('orgInput').value='';
+}
+
+// ===== NAV =====
+function switchNav(name){
+  document.querySelectorAll('.nav-item').forEach(el=> el.classList.remove('active'));
+  const navNames=['upload','staff','store','chart','rates','settings'];
+  document.querySelectorAll('.nav-item')[navNames.indexOf(name)].classList.add('active');
+  document.querySelectorAll('.section').forEach(s=> s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+}
+
+// ===== FILE =====
+function handleFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    if(file.name.toLowerCase().endsWith('.csv')){
+      const lines = ev.target.result.split(/\r?\n/);
+      headers = lines[0].split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+      parsedRows = lines.slice(1).filter(l=>l.trim()).map(l=>l.split(',').map(c=>c.trim().replace(/^"|"$/g,'')));
+    } else {
+      const wb = XLSX.read(ev.target.result,{type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const arr = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      headers = arr[0].map(String);
+      parsedRows = arr.slice(1).filter(r=>r.some(c=>c!==''&&c!==null));
+    }
+    showColMap();
+  };
+  // ファイル名から月を推測（例：202603→2026/03）
+  const mMatch = file.name.match(/(\d{4})(\d{2})/);
+  if(mMatch) currentFileMonth = `${mMatch[1]}/${mMatch[2]}`;
+
+  if(file.name.toLowerCase().endsWith('.csv')) reader.readAsText(file,'UTF-8');
+  else reader.readAsBinaryString(file);
+}
+
+function showColMap(){
+  document.getElementById('colMapCard').style.display='block';
+  document.getElementById('sampleArea').style.display='none';
+  ['col-staff','col-patient','col-time','col-date','col-instype','col-service'].forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML='<option value="-1">（なし）</option>';
+    headers.forEach((h,i)=>{ sel.innerHTML+=`<option value="${i}">${h}</option>`; });
+  });
+  autoMap('col-staff',['職員名１','職員名','スタッフ','担当','看護師']);
+  autoMap('col-patient',['利用者','患者','氏名','名前']);
+  autoMap('col-time',['提供時間','時間','分','min','time']);
+  autoMap('col-date',['日付','日時','date','年月日','訪問日']);
+  autoMap('col-instype',['業務種別','保険種別','保険']);
+  autoMap('col-service',['サービス内容','サービス','区分']);
+}
+function autoMap(selId, kws){
+  const sel=document.getElementById(selId);
+  const idx=headers.findIndex(h=>kws.some(k=>h.includes(k)));
+  if(idx>=0) sel.value=idx;
+}
+
+// ===== SAMPLE =====
+function loadSample(){
+  const staffList=['鈴木 花子','田中 一郎','山田 次郎','佐藤 美穂','中村 健二'];
+  const patientList=['Aさん','Bさん','Cさん','Dさん','Eさん','Fさん','Gさん'];
+  const times=[20,30,45,60,90];
+  headers=['職員名１','利用者','提供時間（分）','日付','業務種別','サービス内容'];
+  currentFileMonth='2026/03';
+  const services=[['訪看Ⅰ３','介護'],['訪看Ⅰ２','介護'],['訪看Ⅰ５・２超','介護'],['基本療養費Ⅰ・正看','医療'],['精神基本療養費Ⅰ・正看','医療']];
+  parsedRows=[];
+  for(let i=0;i<80;i++){
+    const d=new Date(2026,2,Math.floor(Math.random()*28)+1);
+    const sv=services[Math.floor(Math.random()*services.length)];
+    parsedRows.push([
+      staffList[Math.floor(Math.random()*staffList.length)],
+      patientList[Math.floor(Math.random()*patientList.length)],
+      times[Math.floor(Math.random()*times.length)],
+      `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`,
+      sv[1]+'保険',
+      sv[0]
+    ]);
+  }
+  showColMap();
+}
+
+// ===== PROCESS =====
+function processData(){
+  const ci=+document.getElementById('col-staff').value;
+  const pi=+document.getElementById('col-patient').value;
+  const ti=+document.getElementById('col-time').value;
+  const di=+document.getElementById('col-date').value;
+  const ii=+document.getElementById('col-instype').value;
+  const si=+document.getElementById('col-service').value;
+
+  const staffMap={}, monthMap={}, catMap={};
+  let total=0, totalVisits=0;
+  const months=new Set();
+
+  parsedRows.forEach(row=>{
+    const staff=String(row[ci]||'').trim();
+    if(!staff) return;
+    const mins=parseFloat(row[ti])||0;
+    const instype= ii>=0 ? String(row[ii]||'').trim() : '';
+    const service= si>=0 ? String(row[si]||'').trim() : '';
+
+    // 日付処理：数値のみ（日付のみ）の場合はファイル名や月入力から補完
+    const dateRaw=row[di];
+    let month='不明';
+    if(dateRaw){
+      const d=new Date(dateRaw);
+      if(!isNaN(d.getTime()) && d.getFullYear()>1970){
+        month=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+      } else {
+        const m=String(dateRaw).match(/(\d{4})[\/\-年](\d{1,2})/);
+        if(m) month=`${m[1]}/${String(m[2]).padStart(2,'0')}`;
+        else {
+          // 日のみの数値 → document.querySelector等で月補完できないのでファイルメタから推測
+          month = currentFileMonth || '集計月';
+        }
+      }
+    }
+    months.add(month);
+
+    // 売上計算：サービス内容が優先、なければ時間×種別
+    const r = getServiceRate(service, instype, mins);
+    const catKey = service || (instype ? `${instype} ${mins}分` : `不明`);
+    const catType = instype || '不明';
+
+    if(!staffMap[staff]) staffMap[staff]={visits:0,mins:0,sales:0};
+    staffMap[staff].visits++; staffMap[staff].mins+=mins; staffMap[staff].sales+=r;
+    if(!monthMap[month]) monthMap[month]={visits:0,sales:0};
+    monthMap[month].visits++; monthMap[month].sales+=r;
+    if(!catMap[catKey]) catMap[catKey]={visits:0,sales:0,type:catType};
+    catMap[catKey].visits++; catMap[catKey].sales+=r;
+    total+=r; totalVisits++;
+  });
+
+  renderStaff(staffMap,total,totalVisits,months);
+  renderStore(monthMap,catMap,total,totalVisits,Object.keys(staffMap).length);
+  renderCharts(staffMap,total);
+  const banner=document.getElementById('successBanner');
+  banner.style.display='block';
+  setTimeout(()=>banner.style.display='none',4000);
+  switchNav('staff');
+}
+
+function getRate(mins,type){
+  const pool=rates.filter(r=>r.type===type);
+  const found=pool.find(r=>mins>=r.min&&mins<=r.max);
+  return found?found.rate:0;
+}
+function getServiceRate(service, instype, mins){
+  if(service){
+    const found=rates.find(r=>r.name===service);
+    if(found) return found.rate;
+  }
+  if(instype) return getRate(mins, instype.replace(/保険$/,'').trim()||instype);
+  return 0;
+}
+
+// ===== RENDER STAFF =====
+function renderStaff(staffMap,total,totalVisits,months){
+  const entries=Object.entries(staffMap).sort((a,b)=>b[1].sales-a[1].sales);
+  const sortedMonths=[...months].sort();
+  document.getElementById('staffPeriod').textContent=
+    sortedMonths.length?`集計対象期間：${sortedMonths[0]}〜${sortedMonths[sortedMonths.length-1]}`:'';
+  document.getElementById('staffMetrics').innerHTML=`
+    <div class="metric metric-accent">
+      <div class="metric-label">職員数</div>
+      <div class="metric-value">${entries.length}<span class="metric-unit">名</span></div>
+    </div>
+    <div class="metric metric-accent">
+      <div class="metric-label">総売上</div>
+      <div class="metric-value">${total.toLocaleString()}<span class="metric-unit">円</span></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">平均売上 / 職員</div>
+      <div class="metric-value">${entries.length?Math.round(total/entries.length).toLocaleString():0}<span class="metric-unit">円</span></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">総訪問件数</div>
+      <div class="metric-value">${totalVisits}<span class="metric-unit">件</span></div>
+    </div>
+  `;
+  const tb=document.getElementById('staffTableBody');
+  tb.innerHTML='';
+  entries.forEach(([name,v])=>{
+    const pct=total>0?((v.sales/total)*100).toFixed(1):0;
+    tb.innerHTML+=`<tr>
+      <td style="font-weight:500">${name}</td>
+      <td class="td-num">${v.visits}件</td>
+      <td class="td-num">${(Math.round(v.mins/60*10)/10).toFixed(1)}時間</td>
+      <td class="td-num" style="font-weight:700">${v.sales.toLocaleString()}円</td>
+      <td style="min-width:120px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:var(--gray-light);border-radius:4px;height:6px">
+            <div style="width:${pct}%;height:100%;background:var(--teal);border-radius:4px"></div>
+          </div>
+          <span style="font-size:12px;color:var(--text-2);min-width:36px;text-align:right">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+}
+
+// ===== RENDER STORE =====
+function renderStore(monthMap,catMap,total,totalVisits,staffCount){
+  document.getElementById('storeMetrics').innerHTML=`
+    <div class="metric metric-accent">
+      <div class="metric-label">月間売上合計</div>
+      <div class="metric-value">${total.toLocaleString()}<span class="metric-unit">円</span></div>
+    </div>
+    <div class="metric metric-accent">
+      <div class="metric-label">総訪問件数</div>
+      <div class="metric-value">${totalVisits}<span class="metric-unit">件</span></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">対象職員数</div>
+      <div class="metric-value">${staffCount}<span class="metric-unit">名</span></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">1件平均</div>
+      <div class="metric-value">${totalVisits?Math.round(total/totalVisits).toLocaleString():0}<span class="metric-unit">円</span></div>
+    </div>
+  `;
+  const mtb=document.getElementById('monthTableBody');
+  mtb.innerHTML='';
+  Object.entries(monthMap).sort().forEach(([m,v])=>{
+    mtb.innerHTML+=`<tr><td>${m}</td><td class="td-num">${v.visits}件</td><td class="td-num" style="font-weight:700">${v.sales.toLocaleString()}円</td></tr>`;
+  });
+  const ctb=document.getElementById('catTableBody');
+  ctb.innerHTML='';
+  Object.entries(catMap).sort((a,b)=>b[1].sales-a[1].sales).forEach(([k,v])=>{
+    const badge=v.type==='介護'?'badge-care':'badge-med';
+    ctb.innerHTML+=`<tr><td>${k}</td><td><span class="badge ${badge}">${v.type}</span></td><td class="td-num">${v.visits}件</td><td class="td-num" style="font-weight:700">${v.sales.toLocaleString()}円</td></tr>`;
+  });
+}
+
+// ===== RENDER CHARTS =====
+const COLORS=['#1D9E75','#378ADD','#D85A30','#D4537E','#7F77DD','#639922','#BA7517','#E24B4A','#5DCAA5','#888780'];
+function renderCharts(staffMap,total){
+  const entries=Object.entries(staffMap).sort((a,b)=>b[1].sales-a[1].sales).slice(0,10);
+  const max=entries[0]?entries[0][1].sales:1;
+  const area=document.getElementById('barChartArea');
+  area.innerHTML='';
+  entries.forEach(([name,v],i)=>{
+    const pct=(v.sales/max*100).toFixed(1);
+    area.innerHTML+=`<div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-name">${name}</span>
+        <span class="bar-val">${v.sales.toLocaleString()}円</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${COLORS[i%COLORS.length]}"></div></div>
+    </div>`;
+  });
+  const legend=document.getElementById('donutLegend');
+  legend.innerHTML='';
+  entries.forEach(([name],i)=>{
+    legend.innerHTML+=`<span style="display:flex;align-items:center;gap:4px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${COLORS[i%COLORS.length]}"></span>${name}
+    </span>`;
+  });
+  if(donutChart) donutChart.destroy();
+  donutChart=new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{
+      labels:entries.map(([n])=>n),
+      datasets:[{data:entries.map(([,v])=>v.sales),backgroundColor:COLORS,borderWidth:0}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+}
+
+// ===== RATES =====
+function renderRateTable(){
+  const tb=document.getElementById('rateTableBody');
+  tb.innerHTML='';
+  rates.forEach((r,i)=>{
+    tb.innerHTML+=`<tr id="rate-row-${i}">
+      <td><input type="text" class="rate-name-input" id="rate-name-${i}" value="${r.name}" placeholder="サービス内容名"></td>
+      <td>
+        <select class="rate-type-select" id="rate-type-${i}">
+          <option value="介護" ${r.type==='介護'?'selected':''}>介護</option>
+          <option value="医療" ${r.type==='医療'?'selected':''}>医療</option>
+          <option value="保険外" ${r.type==='保険外'?'selected':''}>保険外</option>
+        </select>
+      </td>
+      <td class="td-num"><input class="rate-input" type="number" id="rate-${i}" value="${r.rate}" min="0"></td>
+      <td style="text-align:center">
+        <button class="del-btn" onclick="deleteRateRow(${i})" title="削除">✕</button>
+      </td>
+    </tr>`;
+  });
+}
+function addRateRow(){
+  rates.push({name:'新しい項目',type:'介護',rate:0});
+  renderRateTable();
+  // 追加した行の名前フィールドにフォーカス
+  const last=rates.length-1;
+  const el=document.getElementById('rate-name-'+last);
+  if(el){el.focus();el.select();}
+}
+function deleteRateRow(i){
+  if(!confirm(`「${rates[i].name}」を削除しますか？`))return;
+  rates.splice(i,1);
+  renderRateTable();
+}
+function saveRates(){
+  rates.forEach((_,i)=>{
+    const nameEl=document.getElementById('rate-name-'+i);
+    const typeEl=document.getElementById('rate-type-'+i);
+    const rateEl=document.getElementById('rate-'+i);
+    if(nameEl) rates[i].name=nameEl.value.trim()||rates[i].name;
+    if(typeEl) rates[i].type=typeEl.value;
+    if(rateEl){ const v=parseInt(rateEl.value); if(!isNaN(v)) rates[i].rate=v; }
+  });
+  lsSet('rates', JSON.stringify(rates));
+  // 保存完了フィードバック（alertより目立たない）
+  const btn=document.querySelector('button[onclick="saveRates()"]');
+  if(btn){const orig=btn.textContent;btn.textContent='✓ 保存しました';btn.style.background='#0F6E56';setTimeout(()=>{btn.textContent=orig;btn.style.background='';},1800);}
+}
+function resetRates(){
+  if(!confirm('標準値に戻しますか？')) return;
+  rates=JSON.parse(JSON.stringify(DEFAULT_RATES));
+  lsSet('rates', JSON.stringify(rates));
+  renderRateTable();
+}
+
+// ===== SETTINGS =====
+function saveOrgName(){
+  const name=document.getElementById('orgNameInput').value.trim();
+  if(!name){ alert('事業所名を入力してください'); return; }
+  lsSet('orgName', name);
+  document.getElementById('headerOrg').textContent=name;
+  alert('事業所名を保存しました');
+}
+function changePassword(){
+  const cur=document.getElementById('pwCurrent').value;
+  const nw=document.getElementById('pwNew').value;
+  const cf=document.getElementById('pwConfirm').value;
+  const storedPw=ls('password', DEFAULT_PW);
+  const msg=document.getElementById('pwMsg');
+  if(cur!==storedPw){ msg.style.color='var(--red)'; msg.textContent='現在のパスワードが違います'; return; }
+  if(nw.length<4){ msg.style.color='var(--red)'; msg.textContent='パスワードは4文字以上にしてください'; return; }
+  if(nw!==cf){ msg.style.color='var(--red)'; msg.textContent='新しいパスワードが一致しません'; return; }
+  lsSet('password', nw);
+  msg.style.color='var(--teal)'; msg.textContent='パスワードを変更しました';
+  ['pwCurrent','pwNew','pwConfirm'].forEach(id=>document.getElementById(id).value='');
+}
+
+// ===== EXPORT =====
+function exportCSV(){
+  const tb=document.getElementById('staffTableBody');
+  if(!tb||!tb.innerHTML){ alert('先にデータを集計してください'); return; }
+  const rows=[['職員名','訪問件数','総訪問時間(h)','売上金額(円)','構成比(%)']];
+  tb.querySelectorAll('tr').forEach(tr=>{
+    const cells=[...tr.querySelectorAll('td')].map(td=>td.textContent.replace(/[,円件時間%]/g,'').trim());
+    rows.push(cells.slice(0,5));
+  });
+  const org=ls('orgName','事業所');
+  const csv='\uFEFF'+rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`${org}_売上集計.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
