@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訪問看護 売上管理システム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f2f1ee;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #9b9b96;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --teal-dark: #0F6E56;
+    --blue: #185FA5;
+    --blue-light: #E6F1FB;
+    --amber: #BA7517;
+    --amber-light: #FAEEDA;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+  /* ===== LOCK SCREEN ===== */
+  #lockScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .lock-card {
+    background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: 16px; padding: 2.5rem 2rem; width: 100%; max-width: 400px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+  }
+  .lock-logo { width: 48px; height: 48px; background: var(--teal-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
+  .lock-logo svg { width: 26px; height: 26px; }
+  .lock-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .lock-card p { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+  .form-group input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); font-size: 14px; background: var(--bg);
+    color: var(--text); outline: none; transition: border-color .15s;
+    font-family: inherit;
+  }
+  .form-group input:focus { border-color: var(--teal); }
+  .lock-err { font-size: 13px; color: var(--red); margin-top: 8px; display: none; }
+  .btn-login {
+    width: 100%; padding: 11px; background: var(--teal); color: #fff;
+    border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-top: 0.5rem; font-family: inherit; transition: opacity .15s;
+  }
+  .btn-login:hover { opacity: 0.88; }
+  .pw-hint { font-size: 12px; color: var(--text3); margin-top: 1rem; text-align: center; }
+
+  /* ===== APP SHELL ===== */
+  #app { display: none; min-height: 100vh; }
+  header {
+    background: var(--surface); border-bottom: 0.5px solid var(--border);
+    padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between;
+    height: 56px; position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-logo { width: 32px; height: 32px; background: var(--teal-light); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .header-logo svg { width: 18px; height: 18px; }
+  .header-title { font-size: 15px; font-weight: 600; }
+  .header-org { font-size: 12px; color: var(--text2); background: var(--surface2); border-radius: 20px; padding: 3px 10px; }
+  .btn-logout { font-size: 13px; color: var(--text2); background: none; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 12px; cursor: pointer; font-family: inherit; }
+  .btn-logout:hover { background: var(--surface2); }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+  /* ===== TABS ===== */
+  .tabs { display: flex; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; }
+  .tab {
+    padding: 9px 18px; font-size: 14px; cursor: pointer; border: none;
+    background: transparent; color: var(--text2); border-bottom: 2px solid transparent;
+    margin-bottom: -1px; font-family: inherit; transition: color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--teal-dark); border-bottom-color: var(--teal); font-weight: 500; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ===== UPLOAD ===== */
+  .info-box { background: var(--blue-light); border: 0.5px solid #b5d4f4; border-radius: var(--radius-sm); padding: .75rem 1rem; font-size: 13px; color: var(--blue); margin-bottom: 1rem; }
+  .upload-zone {
+    border: 1.5px dashed var(--border2); border-radius: var(--radius);
+    padding: 3rem 2rem; text-align: center; cursor: pointer; transition: all .15s;
+    background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--teal); background: var(--teal-light); }
+  .upload-icon { width: 52px; height: 52px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 24px; }
+  .upload-zone h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .upload-zone p { font-size: 13px; color: var(--text2); }
+
+  /* ===== CARDS ===== */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 1rem; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: var(--surface2); border-radius: var(--radius-sm); padding: .875rem 1rem; }
+  .metric-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .metric-value { font-size: 24px; font-weight: 600; color: var(--text); line-height: 1.2; }
+  .metric-unit { font-size: 13px; font-weight: 400; color: var(--text2); margin-left: 2px; }
+
+  /* ===== TABLE ===== */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--text2); padding: 8px 12px; border-bottom: 0.5px solid var(--border); font-size: 12px; white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+  .rank { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 600; background: var(--surface2); color: var(--text2); }
+  .rank.top1 { background: #FAEEDA; color: #854F0B; }
+  .rank.top2 { background: #E1F5EE; color: #0F6E56; }
+  .rank.top3 { background: #E6F1FB; color: #185FA5; }
+
+  /* ===== BADGE ===== */
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge-care { background: var(--teal-light); color: var(--teal-dark); }
+  .badge-med { background: var(--blue-light); color: var(--blue); }
+
+  /* ===== BAR ===== */
+  .bar-wrap { margin-bottom: 10px; }
+  .bar-label { font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .bar-track { background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: var(--teal); transition: width .5s ease; }
+
+  /* ===== BUTTONS ===== */
+  .btn { padding: 8px 16px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: transparent; cursor: pointer; font-size: 14px; color: var(--text); font-family: inherit; transition: background .12s; }
+  .btn:hover { background: var(--surface2); }
+  .btn-primary { background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 500; }
+  .btn-primary:hover { opacity: .88; background: var(--teal); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+
+  /* ===== COL MAP ===== */
+  .col-map { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+  .col-map label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block; }
+  .col-map select { width: 100%; padding: 7px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 13px; background: var(--bg); color: var(--text); font-family: inherit; outline: none; }
+  .col-map select:focus { border-color: var(--teal); }
+
+  /* ===== RATE TABLE ===== */
+  .rate-table input[type=number] { width: 90px; text-align: right; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 13px; background: var(--bg); color: var(--text); font-family: inherit; outline: none; }
+  .rate-table input[type=number]:focus { border-color: var(--teal); }
+
+  /* ===== EXPORT ===== */
+  .export-row { display: flex; gap: 8px; align-items: center; margin-bottom: 1.5rem; }
+
+  /* ===== CHART ===== */
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 600px) {
+    .col-map { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    header { padding: 0 1rem; }
+    .container { padding: 1rem; }
+    .tabs { overflow-x: auto; }
+    .tab { white-space: nowrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== LOCK SCREEN ===== -->
+<div id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2" stroke-linecap="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <h1>訪問看護 売上管理</h1>
+    <p>事業所名とパスワードを入力してください</p>
+    <div class="form-group">
+      <label>事業所名</label>
+      <input type="text" id="inputOrg" placeholder="例：〇〇訪問看護ステーション">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="inputPw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')doLogin()">
+      <p class="lock-err" id="lockErr">パスワードが違います</p>
+    </div>
+    <button class="btn-login" onclick="doLogin()">ログイン</button>
+    <p class="pw-hint">初期パスワード：<strong>kango2024</strong>（設定画面で変更可）</p>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <header>
+    <div class="header-left">
+      <div class="header-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2" stroke-linecap="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <span class="header-title">訪問看護 売上管理</span>
+      <span class="header-org" id="headerOrg"></span>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('upload')">📂 データ読み込み</button>
+      <button class="tab" onclick="switchTab('staff')">👤 職員別売上</button>
+      <button class="tab" onclick="switchTab('store')">🏠 店舗合計</button>
+      <button class="tab" onclick="switchTab('chart')">📊 グラフ</button>
+      <button class="tab" onclick="switchTab('settings')">⚙️ 設定</button>
+    </div>
+
+    <!-- UPLOAD -->
+    <div id="sec-upload" class="section active">
+      <div class="info-box">
+        対応列構成：<strong>職員名 / 利用者名 / 訪問時間（分） / 日付</strong>　※列順は自動マッピング後に調整できます
+      </div>
+      <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event)">
+        <div class="upload-icon">📂</div>
+        <h3>Excel / CSV をアップロード</h3>
+        <p>クリックまたはドラッグ＆ドロップ（.xlsx / .xls / .csv）</p>
+      </div>
+
+      <div id="colMapArea" style="display:none; margin-top:1.5rem">
+        <div class="card">
+          <div class="card-title">列の対応を確認</div>
+          <div class="col-map">
+            <div><label>職員名の列</label><select id="col-staff"></select></div>
+            <div><label>利用者名の列</label><select id="col-patient"></select></div>
+            <div><label>訪問時間（分）の列</label><select id="col-time"></select></div>
+            <div><label>日付の列</label><select id="col-date"></select></div>
+          </div>
+          <button class="btn btn-primary" onclick="processData()">集計する</button>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem; text-align:center">
+        <p style="font-size:13px; color:var(--text2); margin-bottom:10px">データがない場合はサンプルで動作確認できます</p>
+        <button class="btn" onclick="loadSample()">サンプルデータを読み込む</button>
+      </div>
+    </div>
+
+    <!-- STAFF -->
+    <div id="sec-staff" class="section">
+      <div class="metric-grid" id="staffMetrics"></div>
+      <div class="export-row">
+        <button class="btn btn-sm" onclick="exportCSV('staff')">CSV出力</button>
+        <button class="btn btn-sm" onclick="exportExcel('staff')">Excel出力</button>
+      </div>
+      <div class="card">
+        <div class="card-title">職員別売上一覧</div>
+        <div class="table-wrap">
+          <table id="staffTable">
+            <thead><tr><th>順位</th><th>職員名</th><th>訪問件数</th><th>総時間</th><th>売上金額</th><th>構成比</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STORE -->
+    <div id="sec-store" class="section">
+      <div class="metric-grid" id="storeMetrics"></div>
+      <div class="export-row">
+        <button class="btn btn-sm" onclick="exportCSV('store')">CSV出力</button>
+        <button class="btn btn-sm" onclick="exportExcel('store')">Excel出力</button>
+      </div>
+      <div class="card">
+        <div class="card-title">月別売上推移</div>
+        <div class="table-wrap" id="monthTable"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">訪問区分別集計</div>
+        <div id="categoryTable"></div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div id="sec-chart" class="section">
+      <div class="card">
+        <div class="card-title">職員別売上（上位10名）</div>
+        <div id="barChart"></div>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <div class="card-title">職員別売上構成（円グラフ）</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="myChart"></canvas></div>
+        <div id="chartLegend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font-size:12px;color:var(--text2)"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="sec-settings" class="section">
+      <div class="card">
+        <div class="card-title">パスワード変更</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:440px">
+          <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">新しいパスワード</label>
+            <input type="password" id="newPw1" style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"></div>
+          <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">確認</label>
+            <input type="password" id="newPw2" style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="changePw()">変更する</button></div>
+        <p id="pwMsg" style="font-size:13px;margin-top:8px;display:none"></p>
+      </div>
+
+      <div class="card rate-table">
+        <div class="card-title">訪問区分別 単価設定（円）</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">訪問時間から区分を自動判定します。実際の報酬単価に合わせて変更してください。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>区分名</th><th>判定時間</th><th>単価（円）</th><th>保険種別</th></tr></thead>
+            <tbody id="rateTableBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" onclick="saveRates()">単価を保存</button>
+          <button class="btn btn-sm" onclick="resetRates()">標準値に戻す</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /app -->
+
+<script>
+// ===== STATE =====
+const DEFAULT_RATES = [
+  {name:'介護保険 20分未満',   minMin:0,  maxMin:19,  rate:313,  type:'介護'},
+  {name:'介護保険 30分未満',   minMin:20, maxMin:29,  rate:470,  type:'介護'},
+  {name:'介護保険 30〜60分',   minMin:30, maxMin:59,  rate:820,  type:'介護'},
+  {name:'介護保険 60〜90分',   minMin:60, maxMin:89,  rate:1120, type:'介護'},
+  {name:'介護保険 90分以上',   minMin:90, maxMin:999, rate:1220, type:'介護'},
+  {name:'医療保険 30分未満',   minMin:0,  maxMin:29,  rate:4230, type:'医療'},
+  {name:'医療保険 30〜60分',   minMin:30, maxMin:59,  rate:5550, type:'医療'},
+  {name:'医療保険 60〜90分',   minMin:60, maxMin:89,  rate:8130, type:'医療'},
+];
+let rates = JSON.parse(JSON.stringify(DEFAULT_RATES));
+let parsedRows = [], headers = [], chartInstance = null;
+let staffData = {}, monthData = {}, catData = {}, totalSales = 0;
+
+const STORAGE_KEY = 'vn_app_';
+
+// ===== AUTH =====
+function getStoredPw() { return localStorage.getItem(STORAGE_KEY + 'pw') || 'kango2024'; }
+function doLogin() {
+  const org = document.getElementById('inputOrg').value.trim();
+  const pw  = document.getElementById('inputPw').value;
+  if (!org) { alert('事業所名を入力してください'); return; }
+  if (pw !== getStoredPw()) {
+    document.getElementById('lockErr').style.display = 'block'; return;
+  }
+  localStorage.setItem(STORAGE_KEY + 'org', org);
+  document.getElementById('headerOrg').textContent = org;
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadSavedRates();
+  renderRateTable();
+}
+function doLogout() {
+  document.getElementById('lockScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('inputPw').value = '';
+  document.getElementById('lockErr').style.display = 'none';
+}
+function changePw() {
+  const p1 = document.getElementById('newPw1').value;
+  const p2 = document.getElementById('newPw2').value;
+  const msg = document.getElementById('pwMsg');
+  if (!p1 || p1.length < 4) { showMsg(msg, 'パスワードは4文字以上にしてください', 'red'); return; }
+  if (p1 !== p2)             { showMsg(msg, '確認用パスワードが一致しません', 'red'); return; }
+  localStorage.setItem(STORAGE_KEY + 'pw', p1);
+  showMsg(msg, 'パスワードを変更しました', 'green');
+}
+function showMsg(el, txt, color) {
+  el.textContent = txt; el.style.color = color === 'red' ? 'var(--red)' : 'var(--teal-dark)';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ===== TABS =====
+function switchTab(name) {
+  const names = ['upload','staff','store','chart','settings'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+}
+
+// ===== RATES =====
+function loadSavedRates() {
+  const saved = localStorage.getItem(STORAGE_KEY + 'rates');
+  if (saved) { try { rates = JSON.parse(saved); } catch(e) {} }
+}
+function renderRateTable() {
+  const tb = document.getElementById('rateTableBody');
+  tb.innerHTML = '';
+  rates.forEach((r, i) => {
+    const badge = r.type === '介護' ? 'badge-care' : 'badge-med';
+    tb.innerHTML += `<tr>
+      <td>${r.name}</td>
+      <td style="font-size:12px;color:var(--text2)">${r.minMin}〜${r.maxMin}分</td>
+      <td><input type="number" value="${r.rate}" id="rate-${i}" min="0"></td>
+      <td><span class="badge ${badge}">${r.type}</span></td>
+    </tr>`;
+  });
+}
+function saveRates() {
+  rates.forEach((_, i) => {
+    const v = parseInt(document.getElementById('rate-' + i).value);
+    if (!isNaN(v)) rates[i].rate = v;
+  });
+  localStorage.setItem(STORAGE_KEY + 'rates', JSON.stringify(rates));
+  if (parsedRows.length) processData();
+  alert('単価を保存しました');
+}
+function resetRates() {
+  rates = JSON.parse(JSON.stringify(DEFAULT_RATES));
+  localStorage.removeItem(STORAGE_KEY + 'rates');
+  renderRateTable();
+}
+function getRate(minutes) {
+  const found = rates.filter(r => r.type === '介護').find(r => minutes >= r.minMin && minutes <= r.maxMin);
+  return found ? found.rate : 0;
+}
+
+// ===== FILE =====
+function handleFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      const text = ev.target.result;
+      const rows = text.split('\n').map(r => r.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
+      headers = rows[0]; parsedRows = rows.slice(1).filter(r => r.some(c => c));
+    } else {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const arr = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      headers = arr[0].map(String);
+      parsedRows = arr.slice(1).filter(r => r.some(c => c !== '' && c !== null));
+    }
+    showColMap();
+  };
+  if (file.name.toLowerCase().endsWith('.csv')) reader.readAsText(file, 'UTF-8');
+  else reader.readAsBinaryString(file);
+}
+function showColMap() {
+  document.getElementById('colMapArea').style.display = 'block';
+  ['col-staff','col-patient','col-time','col-date'].forEach(id => {
+    const sel = document.getElementById(id); sel.innerHTML = '';
+    headers.forEach((h, i) => sel.innerHTML += `<option value="${i}">${h}</option>`);
+  });
+  const autoMap = (selId, kws) => {
+    const sel = document.getElementById(selId);
+    const idx = headers.findIndex(h => kws.some(k => h.includes(k)));
+    if (idx >= 0) sel.value = idx;
+  };
+  autoMap('col-staff',   ['職員','スタッフ','担当']);
+  autoMap('col-patient', ['利用者','患者','氏名','名前']);
+  autoMap('col-time',    ['時間','分','min','time']);
+  autoMap('col-date',    ['日付','日時','date','年月日']);
+}
+function loadSample() {
+  headers = ['職員名','利用者名','訪問時間（分）','日付'];
+  const staff    = ['鈴木 花子','田中 一郎','山田 次郎','佐藤 美穂','中村 健二'];
+  const patients = ['Aさん','Bさん','Cさん','Dさん','Eさん','Fさん','Gさん'];
+  const times    = [20,30,45,60,90];
+  parsedRows = [];
+  for (let i = 0; i < 80; i++) {
+    const d = new Date(2025, Math.floor(Math.random()*3), Math.floor(Math.random()*28)+1);
+    parsedRows.push([
+      staff[Math.floor(Math.random()*staff.length)],
+      patients[Math.floor(Math.random()*patients.length)],
+      times[Math.floor(Math.random()*times.length)],
+      `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
+    ]);
+  }
+  showColMap(); document.getElementById('colMapArea').style.display = 'block';
+}
+
+// ===== PROCESS =====
+function processData() {
+  const ci = parseInt(document.getElementById('col-staff').value);
+  const pi = parseInt(document.getElementById('col-patient').value);
+  const ti = parseInt(document.getElementById('col-time').value);
+  const di = parseInt(document.getElementById('col-date').value);
+  staffData = {}; monthData = {}; catData = {}; totalSales = 0;
+  parsedRows.forEach(row => {
+    const staff = String(row[ci]||'').trim(); if (!staff) return;
+    const mins  = parseFloat(row[ti]) || 0;
+    const dateRaw = row[di];
+    let month = '不明';
+    if (dateRaw) {
+      const d = new Date(dateRaw);
+      if (!isNaN(d.getTime())) month = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+      else { const m = String(dateRaw).match(/(\d{4})[\/\-年](\d{1,2})/); if(m) month = `${m[1]}/${String(m[2]).padStart(2,'0')}`; }
+    }
+    const r = getRate(mins);
+    if (!staffData[staff]) staffData[staff] = {visits:0, mins:0, sales:0};
+    staffData[staff].visits++; staffData[staff].mins += mins; staffData[staff].sales += r;
+    if (!monthData[month]) monthData[month] = {visits:0, sales:0};
+    monthData[month].visits++; monthData[month].sales += r;
+    const catKey = mins >= 90 ? '介護保険 90分以上' : mins >= 60 ? '介護保険 60〜90分' : mins >= 30 ? '介護保険 30〜60分' : mins >= 20 ? '介護保険 30分未満' : '介護保険 20分未満';
+    if (!catData[catKey]) catData[catKey] = {visits:0, sales:0};
+    catData[catKey].visits++; catData[catKey].sales += r;
+    totalSales += r;
+  });
+  renderStaff(); renderStore(); renderChart(); switchTab('staff');
+}
+
+// ===== RENDER STAFF =====
+function renderStaff() {
+  const entries = Object.entries(staffData).sort((a,b) => b[1].sales - a[1].sales);
+  const totalVisits = entries.reduce((s,[,v]) => s+v.visits, 0);
+  document.getElementById('staffMetrics').innerHTML = `
+    <div class="metric"><div class="metric-label">職員数</div><div class="metric-value">${entries.length}<span class="metric-unit">名</span></div></div>
+    <div class="metric"><div class="metric-label">月間売上合計</div><div class="metric-value">${Math.round(totalSales).toLocaleString()}<span class="metric-unit">円</span></div></div>
+    <div class="metric"><div class="metric-label">平均売上/職員</div><div class="metric-value">${entries.length ? Math.round(totalSales/entries.length).toLocaleString() : 0}<span class="metric-unit">円</span></div></div>
+    <div class="metric"><div class="metric-label">総訪問件数</div><div class="metric-value">${totalVisits}<span class="metric-unit">件</span></div></div>
+  `;
+  const tb = document.querySelector('#staffTable tbody'); tb.innerHTML = '';
+  entries.forEach(([name, v], idx) => {
+    const pct = totalSales > 0 ? (v.sales/totalSales*100).toFixed(1) : 0;
+    const rankClass = idx===0?'rank top1':idx===1?'rank top2':idx===2?'rank top3':'rank';
+    tb.innerHTML += `<tr>
+      <td><span class="${rankClass}">${idx+1}</span></td>
+      <td style="font-weight:500">${name}</td>
+      <td>${v.visits}件</td>
+      <td>${(Math.round(v.mins/60*10)/10).toFixed(1)}時間</td>
+      <td style="font-weight:600">${Math.round(v.sales).toLocaleString()}円</td>
+      <td style="min-width:120px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:var(--surface2);border-radius:4px;height:6px">
+            <div style="width:${pct}%;height:100%;background:var(--teal);border-radius:4px"></div>
+          </div>
+          <span style="font-size:12px;color:var(--text2);min-width:36px">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+}
+
+// ===== RENDER STORE =====
+function renderStore() {
+  const months = Object.keys(monthData).sort();
+  const totalVisits = Object.values(monthData).reduce((s,v) => s+v.visits, 0);
+  document.getElementById('storeMetrics').innerHTML = `
+    <div class="metric"><div class="metric-label">月間売上合計</div><div class="metric-value">${Math.round(totalSales).toLocaleString()}<span class="metric-unit">円</span></div></div>
+    <div class="metric"><div class="metric-label">総訪問件数</div><div class="metric-value">${totalVisits}<span class="metric-unit">件</span></div></div>
+    <div class="metric"><div class="metric-label">1件あたり平均</div><div class="metric-value">${totalVisits ? Math.round(totalSales/totalVisits).toLocaleString() : 0}<span class="metric-unit">円</span></div></div>
+  `;
+  let mt = '<table><thead><tr><th>月</th><th>訪問件数</th><th>売上金額</th></tr></thead><tbody>';
+  months.forEach(m => { const v = monthData[m]; mt += `<tr><td>${m}</td><td>${v.visits}件</td><td>${Math.round(v.sales).toLocaleString()}円</td></tr>`; });
+  mt += '</tbody></table>';
+  document.getElementById('monthTable').innerHTML = mt;
+  let ct = '<table><thead><tr><th>訪問区分</th><th>件数</th><th>売上</th></tr></thead><tbody>';
+  Object.entries(catData).sort((a,b)=>b[1].sales-a[1].sales).forEach(([k,v]) => {
+    ct += `<tr><td>${k}</td><td>${v.visits}件</td><td>${Math.round(v.sales).toLocaleString()}円</td></tr>`;
+  });
+  ct += '</tbody></table>';
+  document.getElementById('categoryTable').innerHTML = ct;
+}
+
+// ===== RENDER CHART =====
+const COLORS = ['#1D9E75','#185FA5','#D85A30','#D4537E','#7F77DD','#639922','#BA7517','#E24B4A','#5DCAA5','#888780'];
+function renderChart() {
+  const entries = Object.entries(staffData).sort((a,b)=>b[1].sales-a[1].sales).slice(0,10);
+  const max = entries[0] ? entries[0][1].sales : 1;
+  const bar = document.getElementById('barChart'); bar.innerHTML = '';
+  entries.forEach(([name, v]) => {
+    const pct = (v.sales/max*100).toFixed(1);
+    bar.innerHTML += `<div class="bar-wrap">
+      <div class="bar-label"><span>${name}</span><span style="font-weight:600">${Math.round(v.sales).toLocaleString()}円</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  });
+  const ctx = document.getElementById('myChart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: entries.map(([n])=>n), datasets: [{ data: entries.map(([,v])=>Math.round(v.sales)), backgroundColor: COLORS, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+  const legend = document.getElementById('chartLegend'); legend.innerHTML = '';
+  entries.forEach(([n], i) => {
+    legend.innerHTML += `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${COLORS[i]};flex-shrink:0"></span>${n}</span>`;
+  });
+}
+
+// ===== EXPORT =====
+function exportCSV(type) {
+  let rows = [], filename = '';
+  if (type === 'staff') {
+    rows = [['順位','職員名','訪問件数','総時間(h)','売上金額(円)','構成比(%)']];
+    const entries = Object.entries(staffData).sort((a,b)=>b[1].sales-a[1].sales);
+    entries.forEach(([name,v],i) => rows.push([i+1, name, v.visits, (Math.round(v.mins/60*10)/10).toFixed(1), Math.round(v.sales), totalSales?((v.sales/totalSales)*100).toFixed(1):0]));
+    filename = '職員別売上.csv';
+  } else {
+    rows = [['月','訪問件数','売上金額(円)']];
+    Object.keys(monthData).sort().forEach(m => rows.push([m, monthData[m].visits, Math.round(monthData[m].sales)]));
+    filename = '月別売上.csv';
+  }
+  const bom = '\uFEFF';
+  const csv = bom + rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+function exportExcel(type) {
+  let data = [];
+  if (type === 'staff') {
+    data = [['順位','職員名','訪問件数','総時間(h)','売上金額(円)','構成比(%)']];
+    const entries = Object.entries(staffData).sort((a,b)=>b[1].sales-a[1].sales);
+    entries.forEach(([name,v],i) => data.push([i+1, name, v.visits, parseFloat((Math.round(v.mins/60*10)/10).toFixed(1)), Math.round(v.sales), parseFloat(totalSales?((v.sales/totalSales)*100).toFixed(1):0)]));
+  } else {
+    data = [['月','訪問件数','売上金額(円)']];
+    Object.keys(monthData).sort().forEach(m => data.push([m, monthData[m].visits, Math.round(monthData[m].sales)]));
+  }
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, type === 'staff' ? '職員別売上.xlsx' : '月別売上.xlsx');
+}
+
+// ===== DRAG & DROP =====
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile({target:{files:[file]}});
+});
+
+// ===== INIT =====
+renderRateTable();
+</script>
+</body>
+</html>
